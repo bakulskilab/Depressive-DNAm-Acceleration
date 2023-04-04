@@ -1,0 +1,216 @@
+---
+title: "Tables"
+author: "Herong"
+date: "09/25/2022"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+
+require("knitr")
+opts_knit$set(root.dir = "C:/Users/15340/Desktop/Kelly_RA/Projects/Brittany_ILE_refine/Brittant_original/code_dataset")
+Sys.setenv(R_USER ="C:/Users/15340/Documents")
+
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)  
+library(sjlabelled)
+library(gtsummary)
+library(compareGroups)
+library(rmarkdown)
+library(knitr)
+library(corrplot)
+library(gt)
+```
+
+# Included participants vs excluded participants table
+
+```{r}
+load("full_4018.RData")
+load("analytic_sample_3793.RData")
+
+
+include_exclude_table <- full %>% 
+  tbl_summary(by = included, 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "DNAMGRIMAGE", "GRIM_residuals", "GRIMAccel", "HORVATH_DNAMAGE", "HORVATH_residuals", "HORVATHAccel",'LEVINE_DNAMAGE','LEVINE_residuals','LEVINEAccel','MPOA','MPOA_residuals','MPOAAccel','HANNUM_DNAMAGE','HANNUM_residuals','HANNUMAccel',"depression", "R13CESD", "GENDER", "race_ethnicity", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke",  "R13DRINKD","R13ACT","poverty", "cell_total", "gran", "PBASO", "PEOS", "PNEUT", "PMONO", "PLYMP"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ 'continuous', R13CESD ~ "continuous"),
+              label = list(DNAMGRIMAGE ~ "GrimAge in years, mean(SD)",
+                           age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           GRIMAccel ~ "Has accelerated GrimAge, n(%)",
+                           HORVATH_DNAMAGE ~ "Horvath age in years, mean(SD)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_DNAMAGE ~ "LEVINE age in years, mean(SD)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA ~ "MPOA age in years, mean(SD)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_DNAMAGE ~ "HANNUM age in years, mean(SD)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           depression ~ "High depressive symptoms (CES-D score >= 4), n(%)",
+                           R13CESD ~ "CES-D score, mean(SD)",
+                           #cell_total ~ "Total cell type percent, mean(SD)",
+                           gran ~ "Granulocytes percent, mean(SD)",
+                           PBASO ~ "Basophils percent, mean(SD)",
+                           PEOS ~ "Eosinophils percent, mean(SD)",
+                           PNEUT ~ "Neutrophils percent, mean(SD)",   
+                           PMONO ~ "Monocytes percent, mean(SD)",
+                           PLYMP ~ "Lymphocytes percent, mean(SD)",
+                           GENDER ~ "Gender, n(%)",
+                           race_ethnicity ~ "Race/ethnicity, n(%)",
+                           DEGREE_collapsed ~ "Highest level of education, n(%)",
+                           PMARST_collapsed ~ "Marital status, n(%)",
+                           R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                           smoke ~ "Smoke status, n(%)",
+                           R13ACT ~ "Physical activity level, mean(SD)",
+                           poverty ~ "Financial situation before age 16, n(%)",
+                           R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)"), 
+              missing_text = "N Missing") %>%
+add_p(test.args = c(R13CONDE, R13CESD) ~ list(workspace=2e9)) %>% 
+  add_overall() %>% 
+  bold_labels() 
+  #as_gt() %>% 
+  #gt::tab_options(table.font.names = "Arial") %>% 
+
+include_exclude_table
+
+
+include_exclude_table %>% 
+  as_gt() %>% 
+  gt::gtsave(filename = "table1.html", path = "C:/Users/15340/Desktop/Kelly_RA/Projects/Brittany_ILE_refine/Brittant_original/code_dataset")
+
+include_exclude_table %>% 
+  as_flex_table() %>% 
+  flextable::font(fontname = "Arial", part = "all") %>% 
+  flextable::fontsize(size = 12, part = "all") %>% 
+  flextable::save_as_docx(path ="C:/Users/15340/Desktop/Kelly_RA/Projects/Brittany_ILE_refine/Brittant_original/code_dataset/table1.docx" )
+
+```
+
+# Exposed (depressed) participants versus unexposed (not depressed) participants
+
+```{r}
+exposure_status_table <- complete %>% 
+  tbl_summary(by = depression,
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "DNAMGRIMAGE", "GRIM_residuals", "GRIMAccel", "HORVATH_DNAMAGE", "HORVATH_residuals", "HORVATHAccel",'LEVINE_DNAMAGE','LEVINE_residuals','LEVINEAccel','MPOA','MPOA_residuals','MPOAAccel','HANNUM_DNAMAGE','HANNUM_residuals','HANNUMAccel', "GENDER", "race_ethnicity", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke", "R13DRINKD", "R13ACT", "poverty", "cell_total", "gran", "PBASO", "PEOS", "PNEUT", "PMONO", "PLYMP"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ "continuous"),
+              label = list(DNAMGRIMAGE ~ "GrimAge in years, mean(SD)",
+                           age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           GRIMAccel ~ "Has accelerated GrimAge, n(%)",
+                           HORVATH_DNAMAGE ~ "Horvath age in years, mean(SD)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_DNAMAGE ~ "LEVINE age in years, mean(SD)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA ~ "MPOA age in years, mean(SD)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_DNAMAGE ~ "HANNUM age in years, mean(SD)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           cell_total ~ "Total cell type percent, mean(SD)",
+                           gran ~ "Granulocytes percent, mean(SD)",
+                           PBASO ~ "Basophils percent, mean(SD)",
+                           PEOS ~ "Eosinophils percent, mean(SD)",
+                           PNEUT ~ "Neutrophils percent, mean(SD)", 
+                           PMONO ~ "Monocytes percent, mean(SD)",
+                           PLYMP ~ "Lymphocytes percent, mean(SD)",
+                           GENDER ~ "Gender, n(%)",
+                           race_ethnicity ~ "Race/ethnicity, n(%)",
+                           DEGREE_collapsed ~ "Highest level of education, n(%)",
+                           PMARST_collapsed ~ "Marital status, n(%)",
+                           R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                           smoke ~ "Smoke status, n(%)",
+                           R13ACT ~ "Physical activity level, mean(SD)",
+                           poverty ~ "Financial situation before age 16, n(%)",
+                           R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)")) %>%
+add_p() %>% 
+add_overall() %>% 
+  bold_labels()
+
+exposure_status_table
+
+exposure_status_table %>% 
+  as_gt() %>% 
+  gt::gtsave(filename = "table2.html", path = "C:/Users/15340/Desktop/Kelly_RA/Projects/Brittany_ILE_refine/Brittant_original/code_dataset")
+
+exposure_status_table %>% 
+  as_flex_table() %>% 
+  flextable::font(fontname = "Arial", part = "all") %>% 
+  flextable::fontsize(size = 12, part = "all") %>%
+  flextable::save_as_docx(path = "C:/Users/15340/Desktop/Kelly_RA/Projects/Brittany_ILE_refine/Brittant_original/code_dataset/table2.docx")
+```
+
+# Accelerated aging versus decelerated aging participants (outcome versus no outcome)
+
+```{r}
+outcome_status_table <- complete %>% 
+  tbl_summary(by = GRIMAccel,
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "DNAMGRIMAGE", "GRIM_residuals", "HORVATH_DNAMAGE", "HORVATH_residuals", "HORVATHAccel",'LEVINE_DNAMAGE','LEVINE_residuals','LEVINEAccel','MPOA','MPOA_residuals','MPOAAccel','HANNUM_DNAMAGE','HANNUM_residuals','HANNUMAccel', "depression","R13CESD", "GENDER", "race_ethnicity", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke", "R13DRINKD", "R13ACT", "poverty", "cell_total", "gran", "PBASO", "PEOS", "PNEUT", "PMONO", "PLYMP"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ 'continuous', R13CESD ~ "continuous"),
+              label = list(DNAMGRIMAGE ~ "GrimAge in years, mean(SD)",
+                           age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           HORVATH_DNAMAGE ~ "Horvath age in years, mean(SD)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_DNAMAGE ~ "LEVINE age in years, mean(SD)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA ~ "MPOA age in years, mean(SD)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_DNAMAGE ~ "HANNUM age in years, mean(SD)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           depression ~ "High depressive symptoms (CES-D score >= 4), n(%)",
+                                     R13CESD ~ "CES-D score, n(%)",
+                                     cell_total ~ "Total cell type percent, mean(SD)",
+                                     gran ~ "Granulocytes percent, mean(SD)",
+                           PBASO ~ "Basophils percent, mean(SD)",
+                           PEOS ~ "Eosinophils percent, mean(SD)",
+                           PNEUT ~ "Neutrophils percent, mean(SD)",
+                                     PMONO ~ "Monocytes percent, mean(SD)",
+                                     PLYMP ~ "Lymphocytes percent, mean(SD)",
+                                     GENDER ~ "Gender, n(%)",
+                                     race_ethnicity ~ "Race/ethnicity, n(%)",
+                                     DEGREE_collapsed ~ "Highest level of education, n(%)",
+                                     PMARST_collapsed ~ "Marital status, n(%)",
+                                     R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                                     smoke ~ "Smoke status, n(%)",
+                                     R13ACT ~ "Physical activity level, mean(SD)",
+                                     poverty ~ "Financial situation before age 16, n(%)",
+                                     R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)")) %>%
+add_p(test.args = c(R13CONDE) ~ list(workspace=2e9)) %>% 
+add_overall() %>% 
+  bold_labels() 
+
+outcome_status_table
+
+outcome_status_table %>% 
+  as_gt() %>% 
+  gt::gtsave(filename = "table3.html", path = "C:/Users/15340/Desktop/Kelly_RA/Projects/Brittany_ILE_refine/Brittant_original/code_dataset")
+
+outcome_status_table %>% 
+  as_flex_table() %>% 
+  flextable::font(fontname = "Arial") %>% 
+  flextable::fontsize(size = 12) %>% 
+  flextable::save_as_docx(path ="C:/Users/15340/Desktop/Kelly_RA/Projects/Brittany_ILE_refine/Brittant_original/code_dataset/table3.docx" )
+```

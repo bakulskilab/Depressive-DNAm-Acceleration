@@ -1,0 +1,844 @@
+---
+title: "Linear Regression Models"
+author: "Herong Wang"
+date: "9/28/2022"
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+#Sys.setenv(R_USER ="C:/Users/15340/Documents")
+setwd("C:/Users/herongw/Desktop/Kelly_RA/Projects/depressive_DNAm_HRS/Brittant_original/code_dataset")
+
+
+```
+
+```{r}
+#install.packages("nnet") # for multinomial regression
+#install.packages("tidyverse")
+library(tidyverse)
+library(car)
+library(mediation)
+library(meta)
+library(metasens)
+library(nnet)
+library(devtools)
+#devtools::install_github("BS1125/CMAverse")
+library(CMAverse)
+library(ggplot2)
+if(!require(devtools)) install.packages("devtools")
+#devtools::install_github("kassambara/ggpubr")
+library(ggpubr)
+library(lmtest)
+
+load("analytic_sample_3793.RData")
+
+
+```
+
+## check collinearity between composition of cells
+
+```{r}
+cell_perc <- complete %>% 
+  select(gran, PMONO, PLYMP)
+
+cor_matrix <- rcorr(as.matrix(cell_perc))
+cor_matrix
+cor.test(cell_perc$gran, cell_perc$PLYMP) ## percent of granulocytes is highly correlated with                                                              lymphocytes
+
+cor.test(complete$R13SHLT, complete$R13CONDE)
+
+load("included_3915.RData")
+cor.test(wave13_included$gran, wave13_included$PLYMP)
+```
+
+## Unadjusted model
+
+```{r}
+model_unadj <- lm(GRIM_residuals ~ depression, data = complete)
+
+plot(model_unadj)
+summary(model_unadj)
+confint(model_unadj)
+```
+
+## Primary model- age, gender, race/ethnicity, highest degree, marital status
+
+```{r}
+
+model_prim <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = complete)
+
+plot(model_prim)
+summary(model_prim)
+confint(model_prim)
+
+```
+
+## Secondary model- including health behaviors
+
+```{r}
+
+model_hlth <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO , data = complete)
+
+plot(model_hlth)
+summary(model_hlth)
+confint(model_hlth)
+
+### check interaction ###
+
+model_hlth_inter_race <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + depression*race_ethnicity , data = complete)
+summary(model_hlth_inter_race)
+
+model_hlth_inter_sex <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + depression*GENDER , data = complete)
+summary(model_hlth_inter_sex)
+
+model_hlth_inter_sex_race <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + depression*GENDER*race_ethnicity , data = complete)
+summary(model_hlth_inter_sex_race)
+
+## check multicollinearity ##
+car::vif(model_hlth)
+
+# Checking which variable is responsible for large change
+
+model_hlth1 <- lm(GRIM_residuals ~ depression + age + GENDER + RACE + DEGREE_collapsed + PMARST_collapsed + R13CONDE, data = complete)
+summary(model_hlth1) # coefficient is 0.51
+
+table(complete$R13CONDE)
+
+model_hlth2 <- lm(GRIM_residuals ~ depression + age + GENDER + RACE + DEGREE_collapsed + PMARST_collapsed + R13DRINKD, data = complete)
+summary(model_hlth2) # coefficient is 1.21
+
+model_hlth3 <- lm(GRIM_residuals ~ depression + age + GENDER + RACE + DEGREE_collapsed + PMARST_collapsed + smoke, data = complete)
+summary(model_hlth3) # coefficient is 1.21
+
+model_hlth4 <- lm(GRIM_residuals ~ depression + age + GENDER + RACE + DEGREE_collapsed + PMARST_collapsed + gran, data = COMPLETE)
+summary(model_hlth4) # coefficient is 0.92
+
+model_hlth5 <- lm(GRIM_residuals ~ depression + age + GENDER + RACE + DEGREE_collapsed + PMARST_collapsed + PMONO, data = complete) # coefficient is 1.20
+summary(model_hlth5)
+```
+
+## likelihood test of the model fit between unadjusted & primary & secondary models
+### Primary analysis
+```{r}
+## unadjusted and primary models
+lrtest(model_prim, model_unadj)
+
+## primary model and health behavior model (secondary model)
+lrtest(model_hlth, model_prim)
+```
+
+## Sensitivity analyses
+
+### Models with CES-D score continuous
+
+```{r}
+
+model_cesd_con <- lm(GRIM_residuals ~ R13CESD, data = complete)
+
+plot(model_cesd_con)
+summary(model_cesd_con)
+confint(model_cesd_con)
+
+# Primary adjusted model
+
+model_cesd_con2 <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO , data = complete)
+
+plot(model_cesd_con2)
+summary(model_cesd_con2)
+confint(model_cesd_con2)
+
+# Secondary adjusted model 
+
+model_cesd_con3 <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO , data = complete)
+
+plot(model_cesd_con3)
+summary(model_cesd_con3)
+confint(model_cesd_con3)
+
+```
+
+# Model with any CES-D score greater than 0 as exposed
+
+```{r}
+
+model_cesd_any <- lm(GRIM_residuals ~ any_dep, data = complete)
+
+plot(model_cesd_any)
+summary(model_cesd_any)
+confint(model_cesd_any)
+
+# Primary adjusted model
+
+model_cesd_any2 <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO , data = complete)
+
+plot(model_cesd_any2)
+summary(model_cesd_any2)
+confint(model_cesd_any2)
+
+# Secondary adjusted model 
+
+model_cesd_any3 <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO , data = complete)
+
+plot(model_cesd_any3)
+summary(model_cesd_any3)
+confint(model_cesd_any3)
+
+```
+
+# Model with Horvath clock residuals as the outcome variable
+
+```{r}
+model_horvath <- lm(HORVATH_residuals ~ depression, data = complete)
+
+plot(model_horvath)
+summary(model_horvath)
+confint(model_horvath)
+
+# Primary adjusted model
+
+model_horvath2 <- lm(HORVATH_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO , data = complete)
+
+plot(model_horvath2)
+summary(model_horvath2)
+confint(model_horvath2)
+
+# Secondary adjusted model 
+
+model_horvath3 <- lm(HORVATH_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO, data = complete)
+
+plot(model_horvath3)
+summary(model_horvath3)
+confint(model_horvath3)
+
+```
+
+# Model with LEVINE clock residuals as the outcome variable
+
+```{r}
+model_LEVINE <- lm(LEVINE_residuals ~ depression, data = complete)
+
+plot(model_LEVINE)
+summary(model_LEVINE)
+confint(model_LEVINE)
+
+# Primary adjusted model
+
+model_LEVINE2 <- lm(LEVINE_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO , data = complete)
+
+plot(model_LEVINE2)
+summary(model_LEVINE2)
+confint(model_LEVINE2)
+
+# Secondary adjusted model 
+
+model_LEVINE3 <- lm(LEVINE_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO, data = complete)
+
+plot(model_LEVINE3)
+summary(model_LEVINE3)
+confint(model_LEVINE3)
+
+```
+
+# Model with MPOA clock residuals as the outcome variable
+
+```{r}
+model_MPOA <- lm(MPOA_residuals ~ depression, data = complete)
+
+plot(model_MPOA)
+summary(model_MPOA)
+confint(model_MPOA)
+
+# Primary adjusted model
+
+model_MPOA2 <- lm(MPOA_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO , data = complete)
+
+plot(model_MPOA2)
+summary(model_MPOA2)
+confint(model_MPOA2)
+
+# Secondary adjusted model 
+
+model_MPOA3 <- lm(MPOA_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO, data = complete)
+
+plot(model_MPOA3)
+summary(model_MPOA3)
+confint(model_MPOA3)
+
+```
+
+# Model with HANNUM clock residuals as the outcome variable
+
+```{r}
+model_HANNUM <- lm(HANNUM_residuals ~ depression, data = complete)
+
+plot(model_HANNUM)
+summary(model_HANNUM)
+confint(model_HANNUM)
+
+# Primary adjusted model
+
+model_HANNUM2 <- lm(HANNUM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO, data = complete)
+
+plot(model_HANNUM2)
+summary(model_HANNUM2)
+confint(model_HANNUM2)
+
+# Secondary adjusted model 
+
+model_HANNUM3 <- lm(HANNUM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO, data = complete)
+
+plot(model_HANNUM3)
+summary(model_HANNUM3)
+confint(model_HANNUM3)
+
+```
+
+# Model adding physical activity and childhood poverty
+
+```{r}
+model_act <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + R13ACT, data = complete)
+summary(model_act)
+confint(model_act)
+
+model_pov <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + as.factor(poverty), data = complete)
+summary(model_pov)
+confint(model_pov)
+
+model_sens <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + R13ACT + as.factor(poverty), data = complete)
+
+plot(model_sens)
+summary(model_sens)
+confint(model_sens)
+
+## CALCULATE AIC ##
+AIC(model_hlth)
+AIC(model_act)
+AIC(model_pov)
+AIC(model_sens)
+
+## ANOVA test for model fit ##
+anova(model_hlth, model_pov, test = "F")
+anova(model_pov, model_sens, test = "F")
+anova(model_hlth, model_sens, test = "F")
+
+## likelihood test for model fit ##
+lrtest(model_pov, model_hlth)
+lrtest(model_sens, model_pov)
+lrtest(model_sens, model_hlth)
+
+```
+
+## race-specific regression
+
+```{r dev='jpeg'}
+
+complete_white = complete %>% 
+  filter(race_ethnicity == "Non-Hispanic White")
+
+model_white_unad = lm(GRIM_residuals ~ depression, data = complete_white)
+summary(model_white_unad)
+confint(model_white_unad)
+
+model_white_prim <- lm(GRIM_residuals ~ depression + age + GENDER  + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = complete_white)
+summary(model_white_prim)
+confint(model_white_prim)
+
+model_white_hlth <- lm(GRIM_residuals ~ depression + age + GENDER +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO , data = complete_white)
+summary(model_white_hlth)
+confint(model_white_hlth)
+
+
+complete_black = complete %>% 
+  filter(race_ethnicity == "Non-Hispanic Black")
+
+model_black_unad = lm(GRIM_residuals ~ depression, data = complete_black)
+summary(model_black_unad)
+confint(model_black_unad)
+
+model_black_prim <- lm(GRIM_residuals ~ depression + age + GENDER  + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = complete_black)
+summary(model_black_prim)
+confint(model_black_prim)
+
+model_black_hlth <- lm(GRIM_residuals ~ depression + age + GENDER +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = complete_black)
+summary(model_black_hlth)
+confint(model_black_hlth)
+
+complete_other = complete %>% 
+  filter(race_ethnicity == "Non-Hispanic Other")
+
+model_other_unad = lm(GRIM_residuals ~ depression, data = complete_other)
+summary(model_other_unad)
+confint(model_other_unad)
+
+model_other_prim <- lm(GRIM_residuals ~ depression + age + GENDER  + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = complete_other)
+summary(model_other_prim)
+confint(model_other_prim)
+
+model_other_hlth <- lm(GRIM_residuals ~ depression + age + GENDER +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = complete_other)
+summary(model_other_hlth)
+confint(model_other_hlth)
+
+complete_hispanic = complete %>% 
+  filter(race_ethnicity == "Hispanic")
+
+model_his_unad = lm(GRIM_residuals ~ depression, data = complete_hispanic)
+summary(model_his_unad)
+confint(model_his_unad)
+
+model_his_prim <- lm(GRIM_residuals ~ depression + age + GENDER  + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = complete_hispanic)
+summary(model_his_prim)
+confint(model_his_prim)
+
+model_his_hlth <- lm(GRIM_residuals ~ depression + age + GENDER +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = complete_hispanic)
+summary(model_his_hlth)
+confint(model_his_hlth)
+
+library(esc)
+library(tidyverse)
+
+# meta analysis ##
+summary(model_white_hlth)
+white_ex_mean <- model_white_hlth$coefficients[1]+model_white_hlth$coefficients[2]
+white_ex_sd <- summary(model_white_hlth)$coefficients[2,2]
+white_ex_n <- 293
+white_unex_mean <- model_white_hlth$coefficients[1]
+white_unex_sd <- summary(model_white_hlth)$coefficients[1,2]
+white_unex_n <- 2246
+group <- "Non-Hispanic White"
+white <- data.frame(group, white_ex_mean,white_ex_sd,white_ex_n,white_unex_mean,white_unex_sd,white_unex_n)
+
+colnames(white) = c('group', "ex_mean","ex_sd","ex_n","unex_mean","unex_sd","unex_n")
+
+summary(model_black_hlth)
+black_ex_mean <- model_black_hlth$coefficients[1]+model_black_hlth$coefficients[2]
+black_ex_sd <- summary(model_black_hlth)$coefficients[2,2]
+black_ex_n <- 115
+black_unex_mean <- model_black_hlth$coefficients[1]
+black_unex_sd <- summary(model_black_hlth)$coefficients[1,2]
+black_unex_n <- 518
+
+table(complete_black$depression)
+group <- "Non-Hispanic Black"
+black <- data.frame(group, black_ex_mean,black_ex_sd,black_ex_n,black_unex_mean,black_unex_sd,black_unex_n)
+
+colnames(black) = c('group', "ex_mean","ex_sd","ex_n","unex_mean","unex_sd","unex_n")
+
+other_ex_mean <- model_other_hlth$coefficients[1]+model_other_hlth$coefficients[2]
+other_ex_sd <- summary(model_other_hlth)$coefficients[2,2]
+other_ex_n <- 22
+other_unex_mean <- model_other_hlth$coefficients[1]
+other_unex_sd <- summary(model_other_hlth)$coefficients[1,2]
+other_unex_n <- 92
+group <- "Non-Hispanic Other"
+other <- data.frame(group, other_ex_mean,other_ex_sd,other_ex_n,other_unex_mean,other_unex_sd,other_unex_n)
+colnames(other) = c('group', "ex_mean","ex_sd","ex_n","unex_mean","unex_sd","unex_n")
+
+his_ex_mean <- model_his_hlth$coefficients[1]+model_his_hlth$coefficients[2]
+his_ex_sd <- summary(model_his_hlth)$coefficients[2,2]
+his_ex_n <- 114
+his_unex_mean <- model_his_hlth$coefficients[1]
+his_unex_sd <- summary(model_his_hlth)$coefficients[1,2]
+his_unex_n <- 393
+group <- "Hispanic"
+hispanic <- data.frame(group, his_ex_mean,his_ex_sd,his_ex_n,his_unex_mean,his_unex_sd,his_unex_n)
+colnames(hispanic) = c('group', "ex_mean","ex_sd","ex_n","unex_mean","unex_sd","unex_n")
+
+table(complete_hispanic$depression)
+
+meta <- rbind(white, black, other, hispanic)
+rownames(meta) <- c("1", "2", "3", "4")
+
+
+library(meta)
+library(metasens)
+
+meta_race =  metacont(ex_n, ex_mean, ex_sd, 
+              unex_n, unex_mean, unex_sd,
+              comb.fixed = T, comb.random = T, studlab = group,
+              data = meta, sm = "SMD") 
+meta_race
+
+forest_race = forest(meta_race, print.I2 = F, print.I2.ci = F, print.tau2 = F, print.pval.Q = F,
+       leftcols = c("studlab",  "effect.ci"), leftlabs = c("Strata", "Effect Estimate (95% CI)"),
+       rightcols = c("w.fixed", "w.random"), xlim = c(-1,1))
+
+
+#### do not use metacont() here
+######## metacont() is used in raw data instead of pre-calculated effect size
+##################### for pre-calculated effect size, we can use metagen()
+
+group = "White"
+effect.size = model_white_hlth$coefficients[2]
+effect.size.se <- summary(model_white_hlth)$coefficients[2,2]
+white <- data.frame(group, effect.size, effect.size.se)
+colnames(white) = c('group', "effect.size", "effect.size.sd")
+
+group = "Black"
+effect.size = model_black_hlth$coefficients[2]
+effect.size.se <- summary(model_black_hlth)$coefficients[2,2]
+black <- data.frame(group, effect.size, effect.size.se)
+colnames(black) = c('group', "effect.size", "effect.size.sd")
+
+group = "Other"
+effect.size = model_other_hlth$coefficients[2]
+effect.size.se <- summary(model_other_hlth)$coefficients[2,2]
+other <- data.frame(group, effect.size, effect.size.se)
+colnames(other) = c('group', "effect.size", "effect.size.sd")
+
+group = "Hispanic"
+effect.size = model_his_hlth$coefficients[2]
+effect.size.se <- summary(model_his_hlth)$coefficients[2,2]
+his <- data.frame(group, effect.size, effect.size.se)
+colnames(his) = c('group', "effect.size", "effect.size.sd")
+
+meta_race <- rbind(white, black, his)
+rownames(meta_race) <- c("1", "2", "3")
+
+meta.race <- metagen(TE = effect.size,
+                 seTE = effect.size.sd,
+                 studlab = group,
+                 data = meta_race,
+                 sm = "MD",
+                 fixed = T,
+                 random = F,
+                 method.tau = "REML",
+                 hakn = TRUE)
+
+summary(meta.race)
+
+forest_race = forest(meta.race,print.I2 = F, print.I2.ci = F, print.tau2 = F, print.pval.Q = T, 
+       leftcols = c("studlab", "effect.ci"), leftlabs = c("Strata", "Effect Estimate (95% CI)"),
+       rightcols = c("w.fixed"), xlim = c(-2,2))
+```
+
+
+## sex specific regression
+
+```{r}
+complete_male <- complete %>% 
+  filter(GENDER == "Male")
+
+model_male_unad = lm(GRIM_residuals ~ depression, data = complete_male)
+summary(model_male_unad)
+confint(model_male_unad)
+
+model_male_prim <- lm(GRIM_residuals ~ depression + age + race_ethnicity  + DEGREE_collapsed + PMARST_collapsed + gran + PMONO, data = complete_male)
+summary(model_male_prim)
+confint(model_male_prim)
+
+model_male_hlth <- lm(GRIM_residuals ~ depression + age + race_ethnicity +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = complete_male)
+summary(model_male_hlth)
+confint(model_male_hlth)
+
+complete_female <- complete %>% 
+  filter(GENDER == "Female")
+
+model_female_unad = lm(GRIM_residuals ~ depression, data = complete_female)
+summary(model_female_unad)
+confint(model_female_unad)
+
+model_female_prim <- lm(GRIM_residuals ~ depression + age + race_ethnicity  + DEGREE_collapsed + PMARST_collapsed + gran + PMONO, data = complete_female)
+summary(model_female_prim)
+confint(model_female_prim)
+
+model_female_hlth <- lm(GRIM_residuals ~ depression + age + race_ethnicity +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = complete_female)
+summary(model_female_hlth)
+confint(model_female_hlth)
+
+
+## meta analysis ##
+male_ex_mean <- mean(subset(complete,GENDER == "Male" & depression == "Elevated depressive symptoms")$GRIM_residuals)
+male_ex_sd <- sd(subset(complete,GENDER == "Male" & depression == "Elevated depressive symptoms")$GRIM_residuals)
+male_ex_n <- 170
+male_unex_mean <- mean(subset(complete,GENDER == "Male" & depression == "Low or no depressive symptoms")$GRIM_residuals)
+male_unex_sd <- sd(subset(complete,GENDER == "Male" & depression == "Low or no depressive symptoms")$GRIM_residuals)
+male_unex_n <- 1408
+group <- "Male"
+male <- data.frame(group, male_ex_mean,male_ex_sd,male_ex_n,male_unex_mean,male_unex_sd,male_unex_n)
+colnames(male) = c('group', "ex_mean","ex_sd","ex_n","unex_mean","unex_sd","unex_n")
+
+female_ex_mean <- mean(subset(complete,GENDER == "Female" & depression == "Elevated depressive symptoms")$GRIM_residuals)
+female_ex_sd <- sd(subset(complete,GENDER == "Female" & depression == "Elevated depressive symptoms")$GRIM_residuals)
+female_ex_n <- 374
+female_unex_mean <- mean(subset(complete,GENDER == "Female" & depression == "Low or no depressive symptoms")$GRIM_residuals)
+female_unex_sd <- sd(subset(complete,GENDER == "Female" & depression == "Low or no depressive symptoms")$GRIM_residuals)
+female_unex_n <- 1841
+group <- "Female"
+female <- data.frame(group, female_ex_mean, female_ex_sd, female_ex_n, female_unex_mean, female_unex_sd, female_unex_n)
+colnames(female) = c('group', "ex_mean","ex_sd","ex_n","unex_mean","unex_sd","unex_n")
+
+meta_sex <- rbind(male, female)
+rownames(meta_sex) <- c("1", "2")
+
+meta_r_sex =  metacont(ex_n, ex_mean, ex_sd, 
+              unex_n, unex_mean, unex_sd,
+              comb.fixed = T, comb.random =F, studlab = group,
+              data = meta_sex, sm = "MD") 
+summary(meta_r_sex)
+
+forest_sex = forest(meta_r_sex,print.I2 = F, print.I2.ci = F, print.tau2 = F, print.pval.Q = F, 
+       leftcols = c("studlab", "effect.ci"), leftlabs = c("Strata", "Effect Estimate (95% CI)"),
+       rightcols = c("w.fixed", "w.random"), xlim = c(-1,1))
+
+#### do not use metacont() here
+######## metacont() is used in raw data instead of pre-calculated effect size
+##################### for pre-calculated effect size, we can use metagen()
+group = "Male"
+effect.size = model_male_hlth$coefficients[2]
+effect.size.se <- summary(model_male_hlth)$coefficients[2,2]
+male <- data.frame(group, effect.size, effect.size.se)
+colnames(male) = c('group', "effect.size", "effect.size.sd")
+
+group = "Female"
+effect.size = model_female_hlth$coefficients[2]
+effect.size.se <- summary(model_female_hlth)$coefficients[2,2]
+female <- data.frame(group, effect.size, effect.size.se)
+colnames(female) = c('group', "effect.size", "effect.size.sd")
+
+meta_sex <- rbind(male, female)
+rownames(meta_sex) <- c("1", "2")
+
+meta.sex <- metagen(TE = effect.size,
+                 seTE = effect.size.sd,
+                 studlab = group,
+                 data = meta_sex,
+                 sm = "MD",
+                 fixed = T,
+                 random = F,
+                 method.tau = "REML",
+                 hakn = TRUE)
+
+summary(meta.sex)
+
+forest_sex = forest(meta.sex,print.I2 = F, print.I2.ci = F, print.tau2 = F, print.pval.Q = T, 
+       leftcols = c("studlab", "effect.ci"), leftlabs = c("Strata", "Effect Estimate (95% CI)"),
+       rightcols = c("w.fixed"), xlim = c(-2,2))
+```
+
+## sex and race models and forest plot
+```{r}
+table(complete$GENDER,complete$race_ethnicity)
+
+d = subset(complete, GENDER == "Male" & race_ethnicity == "Non-Hispanic White" )
+
+white_male = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Male" & race_ethnicity == "Non-Hispanic White" ))
+summary(white_male)
+confint(white_male)
+
+white_female = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Female" & race_ethnicity == "Non-Hispanic White" ))
+summary(white_female)
+confint(white_female)
+
+black_male = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Male" & race_ethnicity == "Non-Hispanic Black" ))
+summary(black_male)
+confint(black_male)
+
+black_female = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Female" & race_ethnicity == "Non-Hispanic Black" ))
+summary(black_female)
+confint(black_female)
+
+other_male = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Male" & race_ethnicity == "Non-Hispanic Other" ))
+summary(other_male)
+confint(other_male)
+
+other_female = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Female" & race_ethnicity == "Non-Hispanic Other" ))
+summary(other_female)
+confint(other_female)
+
+hispanic_male = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Male" & race_ethnicity == "Hispanic" ))
+summary(hispanic_male)
+confint(hispanic_male)
+
+hispanic_female = lm(GRIM_residuals ~ depression + age  +  DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO  , data = subset(complete, GENDER == "Female" & race_ethnicity == "Hispanic" ))
+summary(hispanic_female)
+confint(hispanic_female)
+
+
+### forest plot ###
+#### do not use metacont() here
+######## metacont() is used in raw data instead of pre-calculated effect size
+##################### for pre-calculated effect size, we can use metagen()
+group = "White male"
+effect.size = white_male$coefficients[2]
+effect.size.se <- summary(white_male)$coefficients[2,2]
+white.male <- data.frame(group, effect.size, effect.size.se)
+colnames(white.male) = c('group', "effect.size", "effect.size.sd")
+
+group = "White female"
+effect.size = white_female$coefficients[2]
+effect.size.se <- summary(white_female)$coefficients[2,2]
+white.female <- data.frame(group, effect.size, effect.size.se)
+colnames(white.female) = c('group', "effect.size", "effect.size.sd")
+
+group = "black male"
+effect.size = black_male$coefficients[2]
+effect.size.se <- summary(black_male)$coefficients[2,2]
+black.male <- data.frame(group, effect.size, effect.size.se)
+colnames(black.male) = c('group', "effect.size", "effect.size.sd")
+
+group = "black female"
+effect.size = black_female$coefficients[2]
+effect.size.se <- summary(black_female)$coefficients[2,2]
+black.female <- data.frame(group, effect.size, effect.size.se)
+colnames(black.female) = c('group', "effect.size", "effect.size.sd")
+
+group = "other male"
+effect.size = other_male$coefficients[2]
+effect.size.se <- summary(other_male)$coefficients[2,2]
+other.male <- data.frame(group, effect.size, effect.size.se)
+colnames(other.male) = c('group', "effect.size", "effect.size.sd")
+
+group = "other female"
+effect.size = other_female$coefficients[2]
+effect.size.se <- summary(other_female)$coefficients[2,2]
+other.female <- data.frame(group, effect.size, effect.size.se)
+colnames(other.female) = c('group', "effect.size", "effect.size.sd")
+
+group = "hispanic male"
+effect.size = hispanic_male$coefficients[2]
+effect.size.se <- summary(hispanic_male)$coefficients[2,2]
+hispanic.male <- data.frame(group, effect.size, effect.size.se)
+colnames(hispanic.male) = c('group', "effect.size", "effect.size.sd")
+
+group = "hispanic female"
+effect.size = hispanic_female$coefficients[2]
+effect.size.se <- summary(hispanic_female)$coefficients[2,2]
+hispanic.female <- data.frame(group, effect.size, effect.size.se)
+colnames(hispanic.female) = c('group', "effect.size", "effect.size.sd")
+
+meta_sex_race <- rbind(white.male, white.female, black.male, black.female,
+                        hispanic.male, hispanic.female)
+rownames(meta_sex_race) <- c("1", "2","3", "4", "5", "6")
+
+meta.sex.race <- metagen(TE = effect.size,
+                 seTE = effect.size.sd,
+                 studlab = group,
+                 data = meta_sex_race,
+                 sm = "MD",
+                 fixed = T,
+                 random = F,
+                 method.tau = "REML",
+                 hakn = TRUE)
+
+summary(meta.sex.race)
+
+forest_sex_race = forest(meta.sex.race,print.I2 = F, print.I2.ci = F, print.tau2 = F, print.pval.Q = T, 
+       leftcols = c("studlab", "effect.ci"), leftlabs = c("Strata", "Effect Estimate (95% CI)"),
+       rightcols = c("w.fixed"), xlim = c(-2,2))
+```
+
+## causal mediation analysis -- physical activity
+
+```{r}
+# check the interaction between physical activity and depression #
+sens_hlth <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + R13ACT  , data = complete)
+
+sens_inter_hlth <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO + R13ACT + R13ACT*depression  , data = complete)
+
+summary(sens_hlth)
+summary(sens_inter_hlth)
+
+inter_act_change <- abs((summary(sens_inter_hlth)$coefficient[2,1] - summary(sens_hlth)$coefficient[2,1]))*100/summary(sens_hlth)$coefficient[2,1] ## interaction change beta 3%
+
+# causal mediation analysis
+
+complete2 <- complete %>% 
+  mutate(high_depression = if_else(depression == "Elevated depressive symptoms", 1,0))
+
+set.seed(2022)
+
+
+med.fit <- lm(R13ACT ~ high_depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO, data = complete2)
+summary(med.fit)
+out.fit <- lm(GRIM_residuals ~ high_depression + R13ACT + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO , data = complete2)
+summary(out.fit)
+
+med.out <- mediate(med.fit, out.fit, treat = "high_depression", mediator = "R13ACT", boot = T,  sims = 1000)
+summary(med.out)
+
+## sensitivity analysis ##
+sens.out <- medsens(med.out, rho.by = 0.1, effect.type = "both", sims = 100)
+summary(sens.out)
+
+
+### use CMAvers ##
+set.seed(2022)
+med_act <- cmest(data = complete, model = "rb", outcome = "GRIM_residuals", exposure = "depression",
+                                mediator = "R13ACT", basec = c("age" , "GENDER" , "race_ethnicity" , "DEGREE_collapsed" , "PMARST_collapsed" , "R13CONDE" , "R13DRINKD" , "gran" , "PMONO", "smoke"), EMint = TRUE,
+                                mreg = list("linear"), yreg = "linear",
+                                astar = "Low or no depressive symptoms", a = "Elevated depressive symptoms", mval = list(0), 
+                                estimation = "paramfunc", inference = "bootstrap", nboot = 1000)
+
+summary(med_act)
+```
+
+### causal mediation -- smoking
+
+```{r}
+# use CMAverse #
+set.seed(2022)
+med_smk <- cmest(data = complete, model = "rb", outcome = "GRIM_residuals", exposure = "depression",
+                                mediator = "smoke", basec = c("age" , "GENDER" , "race_ethnicity" , "DEGREE_collapsed" , "PMARST_collapsed" , "R13CONDE" , "R13DRINKD" , "gran" , "PMONO"), EMint = TRUE,
+                                mreg = list("multinomial"), yreg = "linear",
+                                astar = "Low or no depressive symptoms", a = "Elevated depressive symptoms", mval = list("Never"), 
+                                estimation = "paramfunc", inference = "bootstrap", nboot = 1000)
+
+summary(med_smk)
+```
+
+### causal mediation -- physical activity + smoking
+
+```{r}
+set.seed(2022)
+med_smk_act <- cmest(data = complete, model = "rb", outcome = "GRIM_residuals", exposure = "depression",
+                                mediator = c("smoke", "R13ACT"), basec = c("age" , "GENDER" , "race_ethnicity" , "DEGREE_collapsed" , "PMARST_collapsed" , "R13CONDE" , "R13DRINKD" , "gran" , "PMONO"), EMint = TRUE,
+                                mreg = list("multinomial", "linear"), yreg = "linear",
+                                astar = "Low or no depressive symptoms", a = "Elevated depressive symptoms", mval = list("Never", 0), 
+                                estimation = "imputation", inference = "bootstrap", nboot = 1000)
+
+summary(med_smk_act)
+```
+
+### multi-panel histogram of age acceleration + depression symptoms
+
+```{r}
+par(mfrow = c(3,3))
+hist(complete$GRIM_residuals, xlab = "Age acceleration (Years)", main = "Histgram of GrimAge acceleration")
+hist(complete$HORVATH_residuals, xlab = "Age acceleration (Years)", main = "Histgram of Horvath acceleration")
+hist(complete$LEVINE_residuals, xlab = "Age acceleration (Years)", main = "Histgram of Levine acceleration")
+hist(complete$MPOA_residuals, xlab = "Age acceleration (Years)", main = "Histgram of MPOA acceleration")
+hist(complete$HANNUM_residuals, xlab = "Age acceleration (Years)", main = "Histgram of Hannum acceleration")
+hist(complete$R13CESD, xlab = "CES-D score", main = "Histgram of CES-D score")
+
+```
+
+## sensitivity analysis -- excluded people older than 85 ##
+```{r}
+complete_85 <- complete %>% 
+  filter(age <= 85)
+
+model_crude <- lm(GRIM_residuals ~ depression, data = complete_85)
+
+plot(model_crude)
+summary(model_crude)
+confint(model_crude)
+
+model_prim <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = complete_85)
+
+plot(model_prim)
+summary(model_prim)
+confint(model_prim)
+
+model_hlth <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13CONDE + R13DRINKD + smoke + gran + PMONO , data = complete_85)
+
+plot(model_hlth)
+summary(model_hlth)
+confint(model_hlth)
+```
+
+```{r}
+
+```
+
