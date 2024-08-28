@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "code citation for Depressive symptoms - DNAm age HRS 2016"
+authors:
+- family-names: "Wang"
+  given-names: "Herong"
+title: "Are depressive symptoms are associated with biological aging in a cross-sectional analysis of adults over age 50 in the United States "
+version: 2.0.4
+date-released: 2023
+url: "https://github.com/bakulskilab/Depressive-DNAm-Acceleration"
