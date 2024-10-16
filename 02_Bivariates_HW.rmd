@@ -1,0 +1,359 @@
+---
+title: "Bivariates"
+author: "Herong"
+date: "08/06/2024"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+
+require("knitr")
+
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)  
+library(sjlabelled)
+library(labelled)
+library(gtsummary)
+library(compareGroups)
+library(rmarkdown)
+library(knitr)
+library(corrplot)
+library(gt)
+```
+
+
+# correlation plot 
+
+```{r}
+res <- cor(as.matrix(complete[ ,c(28,32,34,30,32,13,27,18,21,40,25,26)]),method="pearson")
+
+corrplot.mixed(res,  tl.col = "black", tl.srt = 45)
+
+
+rownames(res) = c("GrimAge residuals", "Levine residuals","MPOA residuals","Horvath residuals", "Hannum residuals", "Continuous CES-D", "Age (years)", "Number of chronic conditions","Alcohol use (days/week)", "Percent granulocyte", "Percent Monocyte", "Percent lymphocyte")
+colnames(res) = c("GrimAge residuals", "Levine residuals","MPOA residuals","Horvath residuals", "Hannum residuals", "Continuous CES-D", "Age (years)", "Number of chronic conditions","Alcohol use (days/week)", "Granulocyte (proportion)", "Monocyte (proportion)", "Lymphocyte (proportion)")
+
+testRes = cor.mtest(res, conf.level = 0.95)
+
+corrplot(res, p.mat = testRes$p, tl.col="black",addCoef.col = 'black', method = 'circle', col = COL2('RdBu', 10), type = 'lower', insig='blank',
+         diag = FALSE)$corrPos -> p1
+text(p1$x, p1$y, round(p1$corr, 2))
+
+
+```
+
+# Included participants vs excluded participants table
+
+```{r}
+load("full_4018.RData")
+load("analytic_3882.RData")
+
+
+include_exclude_table <- full %>% 
+  tbl_summary(by = included, 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "DNAMGRIMAGE", "GRIM_residuals", "GRIMAccel", "HORVATH_DNAMAGE", "HORVATH_residuals", "HORVATHAccel",'LEVINE_DNAMAGE','LEVINE_residuals','LEVINEAccel','MPOA','MPOA_residuals','MPOAAccel','HANNUM_DNAMAGE','HANNUM_residuals','HANNUMAccel',"depression", "R13CESD", "GENDER", "race_ethnicity", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke",  "R13DRINKD", "gran", "PMONO", "PLYMP","R13ACT"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ 'continuous', R13CESD ~ "continuous"),
+              label = list(DNAMGRIMAGE ~ "GrimAge in years, mean(SD)",
+                           age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           GRIMAccel ~ "Has accelerated GrimAge, n(%)",
+                           HORVATH_DNAMAGE ~ "Horvath age in years, mean(SD)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_DNAMAGE ~ "LEVINE age in years, mean(SD)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA ~ "MPOA age in years, mean(SD)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_DNAMAGE ~ "HANNUM age in years, mean(SD)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           depression ~ "High depressive symptoms (CES-D score >= 4), n(%)",
+                           R13CESD ~ "CES-D score, mean(SD)",
+                           gran ~ "Granulocytes percent, mean(SD)",  
+                           PMONO ~ "Monocytes percent, mean(SD)",
+                           PLYMP ~ "Lymphocytes percent, mean(SD)",
+                           GENDER ~ "Gender, n(%)",
+                           race_ethnicity ~ "Race/ethnicity, n(%)",
+                           DEGREE_collapsed ~ "Highest level of education, n(%)",
+                           PMARST_collapsed ~ "Marital status, n(%)",
+                           R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                           smoke ~ "Smoke status, n(%)",
+                           R13ACT ~ "Physical activity level, mean(SD)",
+                           R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)"), 
+              missing_text = "N Missing") %>%
+add_p(test.args = c(R13CONDE, R13CESD) ~ list(workspace=2e9)) %>% 
+  add_overall() %>% 
+  bold_labels() 
+  #as_gt() %>% 
+  #gt::tab_options(table.font.names = "Arial") %>% 
+
+include_exclude_table
+
+
+include_exclude_table %>% 
+  as_flex_table() %>% 
+  flextable::font(fontname = "Calibri", part = "all") %>% 
+  flextable::fontsize(size = 11, part = "all") %>% 
+  flextable::save_as_docx(path ="C:/Users/herongw/Desktop/Kelly_RA/Projects/HW_depressive_DNAm_HRS/Submission/Psychology_aging/Revision_20240323/code/include_table.docx" )
+
+```
+
+# Charateristics between sex and race/ethnicity groups
+```{r}
+
+sex_table <- complete %>% 
+  tbl_summary(by = GENDER, 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "GRIM_residuals", "GRIMAccel", "HORVATH_residuals", "HORVATHAccel",'LEVINE_residuals','LEVINEAccel','MPOA_residuals','MPOAAccel', 'HANNUM_residuals','HANNUMAccel',"depression", "R13CESD", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke",  "R13DRINKD",  "gran",  "PMONO", "PLYMP","R13ACT"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ 'continuous', R13CESD ~ "continuous"),
+              label = list(age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           GRIMAccel ~ "Has accelerated GrimAge, n(%)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           depression ~ "High depressive symptoms (CES-D score >= 4), n(%)",
+                           R13CESD ~ "CES-D score, mean(SD)",
+                           gran ~ "Granulocytes percent, mean(SD)",  
+                           PMONO ~ "Monocytes percent, mean(SD)",
+                           PLYMP ~ "Lymphocytes percent, mean(SD)",
+                           DEGREE_collapsed ~ "Highest level of education, n(%)",
+                           PMARST_collapsed ~ "Marital status, n(%)",
+                           R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                           smoke ~ "Smoke status, n(%)",
+                           R13ACT ~ "Physical activity level, mean(SD)",
+                           R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)"), 
+              missing_text = "N Missing") %>%
+add_p(test.args = c(R13CONDE, R13CESD) ~ list(workspace=2e9)) %>% 
+  bold_labels() 
+  #as_gt() %>% 
+  #gt::tab_options(table.font.names = "Arial") %>% 
+
+sex_table
+
+complete$race_ethnicity = factor(complete$race_ethnicity, 
+                                     levels = c("Non-Hispanic White", "NH-Black or Other", "Hispanic"))
+race_table <- complete %>% 
+  tbl_summary(by = race_ethnicity, 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "GRIM_residuals", "GRIMAccel", "HORVATH_residuals", "HORVATHAccel",'LEVINE_residuals','LEVINEAccel','MPOA_residuals','MPOAAccel', 'HANNUM_residuals','HANNUMAccel',"depression", "R13CESD", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke",  "R13DRINKD",  "gran",  "PMONO", "PLYMP","R13ACT"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ 'continuous', R13CESD ~ "continuous"),
+              label = list(age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           GRIMAccel ~ "Has accelerated GrimAge, n(%)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           depression ~ "High depressive symptoms (CES-D score >= 4), n(%)",
+                           R13CESD ~ "CES-D score, mean(SD)",
+                           gran ~ "Granulocytes percent, mean(SD)",  
+                           PMONO ~ "Monocytes percent, mean(SD)",
+                           PLYMP ~ "Lymphocytes percent, mean(SD)",
+                           DEGREE_collapsed ~ "Highest level of education, n(%)",
+                           PMARST_collapsed ~ "Marital status, n(%)",
+                           R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                           smoke ~ "Smoke status, n(%)",
+                           R13ACT ~ "Physical activity level, mean(SD)",
+                           R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)"), 
+              missing_text = "N Missing") %>%
+  add_p() %>% 
+  bold_labels() 
+
+race_table
+
+sex_race_table = tbl_merge(tbls = list(sex_table, race_table), 
+                           tab_spanner = c("**Sex**", "**Race/ethnicity**"))
+
+sex_race_table
+
+sex_race_table %>% 
+  as_flex_table() %>% 
+  flextable::font(fontname = "Calibri", part = "all") %>% 
+  flextable::fontsize(size = 11, part = "all") %>% 
+  flextable::save_as_docx(path ="C:/Users/herongw/Desktop/Kelly_RA/Projects/HW_depressive_DNAm_HRS/Submission/Psychology_aging/Revision_20240806_final/code/sex_race_table.docx" )
+```
+
+# Exposed (depressed) participants versus unexposed (not depressed) participants
+
+```{r}
+exposure_status_table <- complete %>% 
+  tbl_summary(by = depression,
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "DNAMGRIMAGE", "GRIM_residuals", "GRIMAccel", "HORVATH_DNAMAGE", "HORVATH_residuals", "HORVATHAccel",'LEVINE_DNAMAGE','LEVINE_residuals','LEVINEAccel','MPOA','MPOA_residuals','MPOAAccel','HANNUM_DNAMAGE','HANNUM_residuals','HANNUMAccel', "GENDER", "race_ethnicity", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke", "R13DRINKD", "gran", "PMONO", "PLYMP", "R13ACT"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ "continuous"),
+              label = list(DNAMGRIMAGE ~ "GrimAge in years, mean(SD)",
+                           age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           GRIMAccel ~ "Has accelerated GrimAge, n(%)",
+                           HORVATH_DNAMAGE ~ "Horvath age in years, mean(SD)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_DNAMAGE ~ "LEVINE age in years, mean(SD)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA ~ "MPOA age in years, mean(SD)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_DNAMAGE ~ "HANNUM age in years, mean(SD)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           gran ~ "Granulocytes percent, mean(SD)",
+                           PMONO ~ "Monocytes percent, mean(SD)",
+                           PLYMP ~ "Lymphocytes percent, mean(SD)",
+                           GENDER ~ "Gender, n(%)",
+                           race_ethnicity ~ "Race/ethnicity, n(%)",
+                           DEGREE_collapsed ~ "Highest level of education, n(%)",
+                           PMARST_collapsed ~ "Marital status, n(%)",
+                           R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                           smoke ~ "Smoke status, n(%)",
+                           R13ACT ~ "Physical activity level, mean(SD)",
+                           R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)")) %>%
+add_p() %>% 
+add_overall() %>% 
+  bold_labels()
+
+exposure_status_table
+
+
+```
+
+# Accelerated aging versus decelerated aging participants (outcome versus no outcome)
+
+```{r}
+outcome_status_table <- complete %>% 
+  tbl_summary(by = GRIMAccel,
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+              include = c("age", "DNAMGRIMAGE", "GRIM_residuals", "HORVATH_DNAMAGE", "HORVATH_residuals", "HORVATHAccel",'LEVINE_DNAMAGE','LEVINE_residuals','LEVINEAccel','MPOA','MPOA_residuals','MPOAAccel','HANNUM_DNAMAGE','HANNUM_residuals','HANNUMAccel', "depression","R13CESD", "GENDER", "race_ethnicity", "PMARST_collapsed", "DEGREE_collapsed", "R13CONDE", "smoke", "R13DRINKD", "gran", "PMONO", "PLYMP", "R13ACT"),
+              type = list(R13CONDE ~ 'continuous',  R13DRINKD ~ 'continuous', R13ACT ~ 'continuous', R13CESD ~ "continuous"),
+              label = list(DNAMGRIMAGE ~ "GrimAge in years, mean(SD)",
+                           age ~ "Chronological age in years, mean(SD)",
+                           GRIM_residuals ~ "GrimAge acceleration in years, mean(SD)",
+                           HORVATH_DNAMAGE ~ "Horvath age in years, mean(SD)",
+                           HORVATH_residuals ~ "Horvath age acceleration in years, mean(SD)",
+                           HORVATHAccel ~ "Has accelerated Horvath age, n(%)",
+                           LEVINE_DNAMAGE ~ "LEVINE age in years, mean(SD)",
+                           LEVINE_residuals ~ "LEVINE age acceleration in years, mean(SD)",
+                           LEVINEAccel ~ "Has accelerated LEVINE age, n(%)",
+                           MPOA ~ "MPOA age in years, mean(SD)",
+                           MPOA_residuals ~ "MPOA age acceleration in years, mean(SD)",
+                           MPOAAccel ~ "Has accelerated MPOA age, n(%)",
+                           HANNUM_DNAMAGE ~ "HANNUM age in years, mean(SD)",
+                           HANNUM_residuals ~ "HANNUM age acceleration in years, mean(SD)",
+                           HANNUMAccel ~ "Has accelerated HANNUM age, n(%)",
+                           depression ~ "High depressive symptoms (CES-D score >= 4), n(%)",
+                                     R13CESD ~ "CES-D score, n(%)",
+                                     gran ~ "Granulocytes percent, mean(SD)",
+                                     PMONO ~ "Monocytes percent, mean(SD)",
+                                     PLYMP ~ "Lymphocytes percent, mean(SD)",
+                                     GENDER ~ "Gender, n(%)",
+                                     race_ethnicity ~ "Race/ethnicity, n(%)",
+                                     DEGREE_collapsed ~ "Highest level of education, n(%)",
+                                     PMARST_collapsed ~ "Marital status, n(%)",
+                                     R13CONDE ~ "Number of chronic health conditions out of 8, mean(SD)", 
+                                     smoke ~ "Smoke status, n(%)",
+                                     R13ACT ~ "Physical activity level, mean(SD)",
+                                     R13DRINKD ~ "Number of days per week consuming alcohol, mean(SD)")) %>%
+add_p(test.args = c(R13CONDE) ~ list(workspace=2e9)) %>% 
+  bold_labels() 
+
+outcome_status_table
+
+dep_Grim_table = tbl_merge(tbls = list(exposure_status_table, outcome_status_table))
+
+dep_Grim_table %>% 
+  as_flex_table() %>% 
+  flextable::font(fontname = "Calibri") %>% 
+  flextable::fontsize(size = 12) %>% 
+  flextable::save_as_docx(path ="C:/Users/herongw/Desktop/Kelly_RA/Projects/HW_depressive_DNAm_HRS/Submission/Psychology_aging/Revision_20240323/code/dep_Grim_table.docx" )
+
+```
+
+
+# New table 1 with intercorrelations
+```{r}
+
+complete.n = complete %>% 
+  mutate(depression.n = if_else(depression == "Low or no depressive symptoms", 0, 1)) %>% 
+  mutate(sex.n = if_else(GENDER == "Male", 0, 1)) %>% 
+  mutate(race_ethnicity.n = case_when(race_ethnicity == "Non-Hispanic White" ~ 0,
+                                      race_ethnicity == "NH-Black or Other" ~ 1,
+                                      race_ethnicity == "Hispanic" ~ 2)) %>% 
+  mutate(degree.n = case_when(DEGREE_collapsed == "No degree" ~ 0,
+                               DEGREE_collapsed == "GED/HS diploma" ~ 1,
+                               DEGREE_collapsed == "College and more than college" ~2)) %>% 
+  mutate(marry.n = if_else(PMARST_collapsed == "Married", 0, 1)) %>% 
+  mutate(smoke.n = case_when(smoke == "Never" ~ 0,
+                             smoke == "Former" ~ 1,
+                             smoke == "Current" ~ 2) ) %>% 
+  dplyr::select(depression.n, GRIM_residuals, MPOA_residuals, LEVINE_residuals, HORVATH_residuals,
+         HANNUM_residuals, age, sex.n, race_ethnicity.n, degree.n, marry.n, R13CONDE, R13DRINKD,
+         smoke.n, gran, PMONO, PLYMP, R13ACT)
+
+summary(complete.n, na.rm = T)
+  
+cor.data = as.data.frame(cor(complete.n, method = "spearman", use = "na.or.complete"))
+cor.data = round(cor.data,digits = 2)
+
+for (i in 1:17) {
+  for (x in (i+1):18){
+    cor.data[i, x] = " "
+  }
+}
+
+mean.data = colMeans(complete.n)
+sd.data = apply(complete.n, 2, sd)
+
+mean_sd = data.frame(matrix(ncol = 2, nrow = 18))
+mean_sd[,1] = mean.data
+mean_sd[,2] = sd.data
+colnames(mean_sd) = c("Mean", "SD")
+
+mean_sd = round(mean_sd, digits = 2)
+
+cor_mean = cbind(mean_sd, cor.data)
+rownames(cor_mean) = c("1.Depressive symptoms","2.GrimAge acceleration in years","3.MPOA acceleration in years",
+                       "4.LEVINE acceleration in years","5.HORVATH acceleration in years","6.HANNUM acceleration in years",
+                       "7.Chronological age in years","8.Sex","9.Race/ethnicity",
+                       "10.Education","11.Marital status","12.Chronic conditions","13.Alcohol consumption","14.Smoke", 
+                       "15.Granulocytes percent","16.Monocytes percent","17.Lymphocytes percent", "18.Physical activity")
+colnames(cor_mean) = c("Mean", "SD","1","2","3","4",
+                       "5","6","7","8",
+                       "9","10","11","12","13", "14",
+                       "15","16","17", "18")
+
+cor_table = cor_mean %>% 
+  mutate(Variable = rownames(.)) %>% 
+  gt()
+
+gtsave(data = cor_table, filename = "intercor_table.docx")
+
+cor(complete.n, method = "spearman", use = "na.or.complete")
+
+```
+
+

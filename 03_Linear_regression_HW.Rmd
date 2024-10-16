@@ -1,0 +1,180 @@
+---
+title: "Linear Regression Models"
+author: "Herong Wang"
+date: "08/06/2024"
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r}
+library(tidyverse)
+library(car)
+library(mediation)
+library(meta)
+library(metasens)
+library(nnet)
+library(devtools)
+library(CMAverse)
+library(ggplot2)
+library(ggpubr)
+library(lmtest)
+library("viridis")
+library(car)
+library(Hmisc)
+
+load("full_4018.RData")
+load("analytic_3882.RData")
+
+
+```
+
+
+## Continuous depressive symptoms
+
+```{r}
+model_unadj <- lm(GRIM_residuals ~ R13CESD, data = complete)
+summary(model_unadj)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model_prim <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = complete)
+summary(model_prim)
+
+model_prim_sex <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  + R13CESD*GENDER, data = complete)
+summary(model_prim_sex)
+
+model_prim_race <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  + R13CESD*race_ethnicity, data = complete)
+summary(model_prim_race)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+model_act_cat <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13ACT + R13DRINKD + smoke + gran + PMONO + R13CONDE, data = complete)
+summary(model_act_cat)
+
+
+model_act_inter_sex <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13ACT + R13DRINKD + smoke + gran + PMONO + R13CONDE + R13CESD*GENDER, data = complete)
+summary(model_act_inter_sex)
+
+model_act_inter_race <- lm(GRIM_residuals ~ R13CESD + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + R13ACT + R13DRINKD + smoke + gran + PMONO + R13CONDE + R13CESD*race_ethnicity, data = complete)
+summary(model_act_inter_race)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+testorder1 <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + 
+gran + PMONO +  R13ACT + R13DRINKD + smoke + R13CONDE, data = complete)
+summary(testorder1)
+
+vif(testorder1)
+#create vector of VIF values
+vif_values <- vif(testorder1)
+
+#create horizontal bar chart to display each VIF value
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+
+#add vertical line at 5
+abline(v = 5, lwd = 3, lty = 2)
+
+
+```
+
+## Any depressive symptoms
+
+```{r}
+
+model_unadj <- lm(GRIM_residuals ~ any_dep, data = square2)
+summary(model_unadj)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model_prim <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = square2)
+summary(model_prim)
+
+model_prim_sex <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  + any_dep*GENDER, data = square2)
+summary(model_prim_sex)
+
+model_prim_race <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  + any_dep*race_ethnicity, data = square2)
+summary(model_prim_race)
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+model_act_cat <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed  + gran + PMONO + R13ACT + R13DRINKD + smoke + R13CONDE, data = square2)
+summary(model_act_cat)
+
+
+model_act_inter_sex <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed  + gran + PMONO + R13ACT + R13DRINKD + smoke + R13CONDE + any_dep*GENDER, data = square2)
+summary(model_act_inter_sex)
+
+model_act_inter_race <- lm(GRIM_residuals ~ any_dep + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed  + gran + PMONO + R13ACT + R13DRINKD + smoke + R13CONDE + any_dep*race_ethnicity, data = square2)
+summary(model_act_inter_race)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+```
+
+## High depressive symptoms
+
+```{r}
+
+model_unadj <- lm(GRIM_residuals ~ depression, data = square2)
+summary(model_unadj)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model_prim <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  , data = square2)
+summary(model_prim)
+
+model_prim_sex <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  + depression*GENDER, data = square2)
+summary(model_prim_sex)
+
+model_prim_race <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed + gran + PMONO  + depression*race_ethnicity, data = square2)
+summary(model_prim_race)
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+model_act_cat <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed  + gran + PMONO + R13ACT + R13DRINKD + smoke + R13CONDE, data = square2)
+summary(model_act_cat)
+
+
+model_act_inter_sex <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed  + gran + PMONO + R13ACT + R13DRINKD + smoke + R13CONDE + depression*GENDER, data = square2)
+summary(model_act_inter_sex)
+
+model_act_inter_race <- lm(GRIM_residuals ~ depression + age + GENDER + race_ethnicity + DEGREE_collapsed + PMARST_collapsed  + gran + PMONO + R13ACT + R13DRINKD + smoke + R13CONDE + depression*race_ethnicity, data = square2)
+summary(model_act_inter_race)
+
+```
+
+
+## likelihood test of the model fit between unadjusted & primary & secondary models
+### Primary analysis
+```{r}
+## unadjusted and primary models
+lrtest(model_prim, model_unadj)
+
+## primary model and health behavior model (secondary model)
+lrtest(model_act_cat, model_prim)
+```
+
+## Visualizations
+```{r}
+# GrimAge vs chronological age
+complete %>% 
+  ggplot(aes(x = age, y= DNAMGRIMAGE))+
+  geom_jitter(color = "black", shape = 1, alpha = 0.4, size = 2.5)+
+  geom_smooth(color = "black", method = "lm", size = 1.3, se = F)+
+  labs(x= "Chronological age (years)", y = "GrimAge age (years)")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+complete %>% 
+  ggplot(aes(x = age, y = GRIM_residuals))+
+  geom_jitter(color = "black", shape = 1, alpha = 0.4, size = 2.5)+
+  geom_hline(yintercept=0, size = 1.1)+
+  labs(x= "Chronological age (years)", y = "GrimAge residuals (years)")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
+```
+
