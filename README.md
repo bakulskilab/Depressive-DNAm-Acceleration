@@ -1,5 +1,7 @@
 # Are depressive symptoms associated with DNA methylation age acceleration in a cross-sectional analysis of adults over age 50 in the United States
 
+Authors: Herong Wang, MPH, Kelly M. Bakulski, PhD, Freida Blostein, PhD, Brittany R. Porath, MPH, John Dou, MPH, César Higgins Tejera, MD, PhD, Lindsay H. Ryan, PhD, Erin B. Ware, PhD
+
 Major depressive disorder accelerates DNA methylation age, a biological aging marker. Subclinical depressive symptoms are common, but their link to DNA
 methylation aging in older adults remains unexplored. This study analyzed the crosssectional
 relationship between depressive symptoms and accelerated DNA methylation
